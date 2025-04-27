@@ -1,5 +1,5 @@
 class ApiConfig {
-  static const String baseUrl = 'http://10.161.168.101:5000/api';
+  static const String baseUrl = 'http://192.168.43.209:5000/api';
   static const String eventsEndpoint = '/events/getEvent';
   static const String eventDetailsEndpoint = '/events';
   static const String loginEndpoint = '/auth/login';

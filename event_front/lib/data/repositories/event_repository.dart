@@ -9,11 +9,18 @@ class EventRepository {
       Uri.parse('${ApiConfig.baseUrl}${ApiConfig.eventsEndpoint}'),
     );
 
+    print('Raw response body: ${response.body}'); // Debug: Log raw response
+
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => EventModel.fromJson(json)).toList();
+      final dynamic data = jsonDecode(response.body);
+      final List<dynamic> eventList = data is List ? data : data['events'] ?? [];
+      if (eventList.isNotEmpty) {
+        return eventList.map((json) => EventModel.fromJson(json)).toList();
+      } else {
+        throw Exception('No events found in response');
+      }
     } else {
-      throw Exception(jsonDecode(response.body)['message']);
+      throw Exception(jsonDecode(response.body)['message'] ?? 'Failed to fetch events');
     }
   }
 
@@ -22,10 +29,12 @@ class EventRepository {
       Uri.parse('${ApiConfig.baseUrl}${ApiConfig.eventDetailsEndpoint}/$id'),
     );
 
+    print('Raw event details response: ${response.body}'); // Debug: Log raw response
+
     if (response.statusCode == 200) {
       return EventModel.fromJson(jsonDecode(response.body));
     } else {
-      throw Exception(jsonDecode(response.body)['message']);
+      throw Exception(jsonDecode(response.body)['message'] ?? 'Failed to fetch event details');
     }
   }
 }

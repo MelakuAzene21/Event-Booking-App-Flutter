@@ -1,3 +1,4 @@
+import 'dart:convert';
 
 class EventModel {
   final String id;
@@ -25,19 +26,23 @@ class EventModel {
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
+    print('Parsing event: $json'); // Debug: Log JSON input
     return EventModel(
-      id: json['_id'],
-      title: json['title'],
-      description: json['description'],
-      eventDate: DateTime.parse(json['eventDate']),
-      eventTime: json['eventTime'],
-      location: json['location'],
-      category: json['category'] ?? 'General',
-      ticketTypes: (json['ticketTypes'] as List)
-          .map((t) => TicketType.fromJson(t))
-          .toList(),
-      organizer: Organizer.fromJson(json['organizer']),
-      isBookmarked: json['isBookmarked'] ?? false,
+      id: json['_id']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'No Title',
+      description: json['description']?.toString() ?? '',
+      eventDate: DateTime.tryParse(json['eventDate']?.toString() ?? '') ?? DateTime.now(),
+      eventTime: json['eventTime']?.toString() ?? '',
+      location: json['location']?.toString() ?? '',
+      category: json['category'] is String
+          ? json['category']
+          : json['category']?['name']?.toString() ?? 'General',
+      ticketTypes: (json['ticketTypes'] as List<dynamic>?)
+              ?.map((t) => TicketType.fromJson(t as Map<String, dynamic>))
+              .toList() ??
+          [],
+      organizer: Organizer.fromJson(json['organizer'] as Map<String, dynamic>? ?? {}),
+      isBookmarked: json['isBookmarked'] as bool? ?? false,
     );
   }
 }
@@ -57,10 +62,10 @@ class TicketType {
 
   factory TicketType.fromJson(Map<String, dynamic> json) {
     return TicketType(
-      name: json['name'],
-      price: (json['price'] as num).toDouble(),
-      available: json['available'] ?? 0,
-      booked: json['booked'] ?? 0,
+      name: json['name']?.toString() ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      available: json['available'] as int? ?? 0,
+      booked: json['booked'] as int? ?? 0,
     );
   }
 }
@@ -82,11 +87,11 @@ class Organizer {
 
   factory Organizer.fromJson(Map<String, dynamic> json) {
     return Organizer(
-      name: json['name'],
-      email: json['email'],
-      avatar: json['avatar'],
-      about: json['about'],
-      organizationName: json['organizationName'],
+      name: json['name']?.toString() ?? 'Unknown',
+      email: json['email']?.toString() ?? '',
+      avatar: json['avatar']?.toString(),
+      about: json['about']?.toString(),
+      organizationName: json['organizationName']?.toString(),
     );
   }
 }

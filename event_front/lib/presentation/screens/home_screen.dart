@@ -14,7 +14,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
   String _selectedCategory = 'All';
-  List<String> categories = ['All', 'Music', 'Sports', 'Tech', 'Art'];
+  List<String> categories = ['All', 'Music', 'Sports', 'Tech', 'Art', 'General'];
 
   @override
   void dispose() {
@@ -71,6 +71,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Expanded(
             child: eventsAsync.when(
               data: (events) {
+                if (events.isEmpty) {
+                  return const Center(child: Text('No events available'));
+                }
                 final filteredEvents = events
                     .where((event) =>
                         event.title
@@ -87,7 +90,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Error: $error')),
+              error: (error, stackTrace) {
+                print('Error in eventsProvider: $error'); // Debug: Log error
+                return Center(child: Text('Failed to load events: $error'));
+              },
             ),
           ),
         ],
