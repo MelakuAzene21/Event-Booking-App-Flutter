@@ -1,5 +1,7 @@
 class ApiConfig {
-  static const String baseUrl = 'http://192.168.43.209:5000/api';
+  // static const String baseUrl = 'http://192.168.43.209:5000/api';
+    static const String baseUrl = 'https://event-booking-app-flutter-1.onrender.com/api';
+
   static const String eventsEndpoint = '/events/getEvent';
   static const String eventDetailsEndpoint = '/events';
   static const String loginEndpoint = '/auth/login';

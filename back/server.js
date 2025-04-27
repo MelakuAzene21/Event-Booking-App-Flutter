@@ -29,7 +29,7 @@ const io = initializeSocket(server); // Initialize WebSocket
 const cors = require('cors');
 // Configure CORS to allow requests from your frontend
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://localhost:5173'],
+    origin: ['http://localhost:3000', 'http://localhost:5173' ,'http://10.161.166.119'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
