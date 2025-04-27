@@ -15,8 +15,30 @@ class MyApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Event Booking App',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          primary: Colors.blue,
+          secondary: Colors.amber,
+        ),
+        cardTheme: const CardTheme(
+          elevation: 6,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+          ),
+        ),
+        textTheme: const TextTheme(
+          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          bodyLarge: TextStyle(fontSize: 16),
+          bodyMedium: TextStyle(fontSize: 14),
+          bodySmall: TextStyle(fontSize: 12),
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: Colors.grey[200],
+          selectedColor: Colors.blue,
+          labelStyle: const TextStyle(fontSize: 12),
+        ),
       ),
       routerConfig: router,
     );
