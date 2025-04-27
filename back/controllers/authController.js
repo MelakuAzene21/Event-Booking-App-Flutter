@@ -329,6 +329,8 @@ exports.getVendorById = async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 };
+ 
+
 
 exports.uploadAvatar = async (req, res) => {
     try {
@@ -340,7 +342,13 @@ exports.uploadAvatar = async (req, res) => {
         }
 
         // Get the secure URL from Cloudinary
-        const avatarUrl = req.files.avatar[0].path; // Cloudinary URL from the first avatar file
+        const avatarFile = req.files.avatar[0];
+        const avatarUrl = avatarFile.path; // Cloudinary URL
+        console.log('Uploaded avatar:', {
+            url: avatarUrl,
+            mimetype: avatarFile.mimetype,
+            format: avatarFile.format,
+        });
 
         // Find the user to get the old avatar URL (if any)
         const user = await User.findById(userId);
@@ -349,7 +357,7 @@ exports.uploadAvatar = async (req, res) => {
         }
 
         // Delete the old avatar from Cloudinary if it exists
-        if (user.avatar) {
+        if (user.avatar && user.avatar !== 'default.jpg') {
             await deleteOldAvatar(user.avatar);
         }
 
@@ -366,7 +374,7 @@ exports.uploadAvatar = async (req, res) => {
 
         res.status(200).json({
             message: "Avatar uploaded successfully",
-            avatarUrl: avatarUrl, // Consistent with frontend expectation
+            avatarUrl: avatarUrl,
         });
     } catch (error) {
         console.error("Error uploading avatar:", error);

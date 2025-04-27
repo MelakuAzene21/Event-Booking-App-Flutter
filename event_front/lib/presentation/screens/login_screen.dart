@@ -43,12 +43,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authProvider);
 
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => context.pop(),
+        ),
+        title: const Text('Login'),
+        backgroundColor: Colors.blue.shade900,
+        foregroundColor: Colors.white,
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: FadeTransition(
-              opacity: AlwaysStoppedAnimation(1.0),
+              opacity: const AlwaysStoppedAnimation(1.0),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -163,7 +172,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           elevation: 5,
                         ),
                         child: _isLoading
-                            ? SizedBox(
+                            ? const SizedBox(
                                 height: 24,
                                 width: 24,
                                 child: CircularProgressIndicator(

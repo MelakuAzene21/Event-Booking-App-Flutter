@@ -20,82 +20,100 @@ class EventCard extends StatelessWidget {
           elevation: 6,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                    child: CachedNetworkImage(
-                      imageUrl: event.images.isNotEmpty ? event.images[0] : 'https://via.placeholder.com/300x200',
-                      height: 140,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Icon(Icons.error),
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: CircleAvatar(
-                      backgroundColor: Colors.black54,
-                      radius: 16,
-                      child: Icon(
-                        event.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                        color: Colors.white,
-                        size: 20,
+          child: SizedBox(
+            height: 260, // Constrain card height to prevent overflow
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Flexible(
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                        child: CachedNetworkImage(
+                          imageUrl: event.images.isNotEmpty && event.images[0].isNotEmpty && Uri.tryParse(event.images[0])?.hasAbsolutePath == true
+                              ? event.images[0]
+                              : 'https://via.placeholder.com/300x200',
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                          errorWidget: (context, url, error) {
+                            print('Image load error for Event ID: ${event.id}, URL: $url, Error: $error');
+                            return const Icon(Icons.broken_image, size: 50, color: Colors.grey);
+                          },
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      event.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black54,
+                          radius: 16,
+                          child: Icon(
+                            event.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                            color: Colors.white,
+                            size: 20,
                           ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${DateFormat('MMM dd, yyyy').format(event.eventDate)} • ${event.location.name}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Chip(
-                          label: Text(event.category, style: const TextStyle(fontSize: 12)),
-                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                          labelStyle: TextStyle(color: Theme.of(context).colorScheme.primary),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
                         ),
-                        const Spacer(),
-                        Row(
-                          children: [
-                            const Icon(Icons.favorite, size: 16, color: Colors.red),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${event.likes}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        event.title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${DateFormat('MMM dd, yyyy').format(event.eventDate)} • ${event.location.name}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Chip(
+                              label: Text(
+                                event.category,
+                                style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              labelStyle: TextStyle(color: Theme.of(context).colorScheme.primary),
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.favorite, size: 16, color: Colors.red),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${event.likes}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -10,6 +10,7 @@ import 'package:event_booking_app/presentation/screens/event_details_screen.dart
 import 'package:event_booking_app/presentation/screens/login_screen.dart';
 import 'package:event_booking_app/presentation/screens/register_screen.dart';
 import 'package:event_booking_app/presentation/screens/booking_screen.dart';
+import 'package:event_booking_app/presentation/screens/edit_profile_screen.dart';
 import 'package:event_booking_app/domain/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -61,6 +62,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => BookingScreen(
               eventId: state.pathParameters['eventId']!,
             ),
+            redirect: (context, state) async {
+              final authState = ref.read(authProvider);
+              if (!authState.isAuthenticated) {
+                return '/login';
+              }
+              return null;
+            },
+          ),
+          GoRoute(
+            path: 'edit-profile',
+            builder: (context, state) => const EditProfileScreen(),
             redirect: (context, state) async {
               final authState = ref.read(authProvider);
               if (!authState.isAuthenticated) {

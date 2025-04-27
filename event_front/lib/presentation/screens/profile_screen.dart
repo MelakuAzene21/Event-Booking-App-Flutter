@@ -75,7 +75,6 @@ class ProfileScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // User Details Section
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.email),
@@ -158,7 +157,6 @@ class ProfileScreen extends ConsumerWidget {
                       subtitle: const Text('About'),
                     ),
                   ).animate().fadeIn(delay: const Duration(milliseconds: 900)),
-                // Role-Specific Sections
                 if (user.role == 'vendor' && user.serviceProvided != null)
                   Card(
                     child: ListTile(
@@ -246,7 +244,6 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ).animate().fadeIn(delay: const Duration(milliseconds: 1400)),
                 const SizedBox(height: 16),
-                // Actions Section
                 Text(
                   'Actions',
                   style: Theme.of(context).textTheme.titleLarge,
@@ -256,11 +253,7 @@ class ProfileScreen extends ConsumerWidget {
                   child: ListTile(
                     leading: const Icon(Icons.edit),
                     title: const Text('Edit Profile'),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Edit Profile coming soon!')),
-                      );
-                    },
+                    onTap: () => context.go('/edit-profile'),
                   ),
                 ).animate().fadeIn(delay: const Duration(milliseconds: 1600)),
                 Card(
