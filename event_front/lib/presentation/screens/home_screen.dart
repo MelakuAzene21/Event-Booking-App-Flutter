@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:event_booking_app/domain/providers/event_provider.dart';
 import 'package:event_booking_app/presentation/widgets/event_card.dart';
@@ -36,12 +35,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             title: const Text('Discover Events'),
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.account_circle),
-                onPressed: () => context.push('/profile'),
-              ),
-            ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(120),
               child: Padding(

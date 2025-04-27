@@ -17,6 +17,7 @@ dependencies:
   go_router: ^14.2.7
   cached_network_image: ^3.3.1 # For loading and caching images
   flutter_animate: ^4.5.0 # For animations
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
