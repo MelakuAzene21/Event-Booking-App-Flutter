@@ -30,20 +30,30 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   Future<Map<String, dynamic>?> _getUserProfile() async {
     final token = await SecureStorage.getToken();
-    if (token == null) return null;
-
-    final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.profileEndpoint}'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie': 'token=$token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+    if (token == null) {
+      print('Error: No token found in secure storage');
+      return null;
     }
-    return null;
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.profileEndpoint}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': 'token=$token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print('Error fetching profile: Status ${response.statusCode}, ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching user profile: $e');
+      return null;
+    }
   }
 
   Future<void> _initializePayment(double amount) async {
@@ -53,8 +63,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     try {
       final token = await SecureStorage.getToken();
-      if (token == null) throw Exception('No token found');
+      if (token == null) throw Exception('No authentication token found. Please log in again.');
 
+      print('Initializing payment with amount: $amount, currency: ETB');
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/payment/initialize'),
         headers: {
@@ -65,25 +76,44 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           'amount': amount,
           'currency': 'ETB',
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
+
+      print('Payment initialization response: ${response.statusCode}, ${response.body}');
 
       if (response.statusCode == 200) {
         final paymentData = jsonDecode(response.body);
         final paymentUrl = paymentData['paymentUrl'];
         txRef = paymentData['tx_ref'];
+
         if (paymentUrl != null) {
-          await launchUrl(Uri.parse(paymentUrl), mode: LaunchMode.externalApplication);
-          // After payment, verify the transaction
-          await _verifyTransaction();
+          final launched = await launchUrl(
+            Uri.parse(paymentUrl),
+            mode: LaunchMode.externalApplication,
+          );
+          if (!launched) throw Exception('Failed to launch payment URL');
+
+          // Show a SnackBar with a manual verification option
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Complete payment and tap "Verify Payment"'),
+              duration: const Duration(seconds: 30),
+              action: SnackBarAction(
+                label: 'Verify Payment',
+                onPressed: _verifyTransaction,
+              ),
+            ),
+          );
         } else {
-          throw Exception('Payment URL not found');
+          throw Exception('Payment URL not found in response');
         }
       } else {
-        throw Exception(jsonDecode(response.body)['message']);
+        final errorMessage = jsonDecode(response.body)['message'] ?? 'Failed to initialize payment';
+        throw Exception('Server error: $errorMessage');
       }
     } catch (e) {
+      print('Error initializing payment: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error initializing payment: $e')),
+        SnackBar(content: Text('Error initializing payment: ${e.toString()}')),
       );
     } finally {
       setState(() {
@@ -93,7 +123,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   }
 
   Future<void> _verifyTransaction() async {
-    if (txRef == null || selectedTicketType == null) return;
+    if (txRef == null || selectedTicketType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Transaction reference or ticket type missing')),
+      );
+      return;
+    }
 
     setState(() {
       isLoading = true;
@@ -101,12 +136,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     try {
       final token = await SecureStorage.getToken();
-      if (token == null) throw Exception('No token found');
+      if (token == null) throw Exception('No authentication token found. Please log in again.');
 
       final userProfile = await _getUserProfile();
       if (userProfile == null) throw Exception('Failed to fetch user profile');
 
       final userId = userProfile['_id'];
+      print('Verifying transaction with txRef: $txRef, userId: $userId');
+
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/payment/verify-transaction/$txRef'),
         headers: {
@@ -119,7 +156,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           'ticketCount': ticketCount,
           'userId': userId,
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
+
+      print('Transaction verification response: ${response.statusCode}, ${response.body}');
 
       if (response.statusCode == 200) {
         final verifyData = jsonDecode(response.body);
@@ -132,14 +171,16 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             const SnackBar(content: Text('Payment and booking successful!')),
           );
         } else {
-          throw Exception(verifyData['message']);
+          throw Exception(verifyData['message'] ?? 'Transaction verification failed');
         }
       } else {
-        throw Exception(jsonDecode(response.body)['message']);
+        final errorMessage = jsonDecode(response.body)['message'] ?? 'Failed to verify transaction';
+        throw Exception('Server error: $errorMessage');
       }
     } catch (e) {
+      print('Error verifying transaction: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error verifying transaction: $e')),
+        SnackBar(content: Text('Error verifying transaction: ${e.toString()}')),
       );
     } finally {
       setState(() {

@@ -121,25 +121,25 @@
 
 
 
-
 const axios = require('axios');
 const dotenv = require('dotenv');
 const nanoid = async () => (await import('nanoid')).nanoid;
 const Booking = require('../models/Booking');
 dotenv.config();
 
-
 exports.InializePayment = async (req, res) => {
     try {
+        console.log('Received payment initialization request:', req.body);
         const { amount, currency } = req.body;
 
         if (!amount || !currency) {
             return res.status(400).json({ message: 'Missing required fields: amount and currency' });
         }
-        const generateTxRef = await nanoid();
 
         // Generate unique transaction reference
-        const tx_ref = generateTxRef();
+        const generateTxRef = await nanoid();
+const tx_ref = generateTxRef();
+
 
         // Prepare Chapa payment data
         const paymentData = {
@@ -148,9 +148,9 @@ exports.InializePayment = async (req, res) => {
             currency
         };
 
-        // Make request to Chapa's mobile initialize endpoint
+        // Make request to Chapa's initialize endpoint
         const chapaResponse = await axios.post(
-            'https://api.chapa.co/v1/transaction/mobile-initialize',
+            'https://api.chapa.co/v1/transaction/initialize', // Updated endpoint
             paymentData,
             {
                 headers: {
@@ -160,6 +160,8 @@ exports.InializePayment = async (req, res) => {
             }
         );
 
+        console.log('Chapa API response:', chapaResponse.data);
+
         if (chapaResponse.data.status === 'success') {
             return res.status(200).json({
                 message: 'Payment initialized successfully',
@@ -167,7 +169,10 @@ exports.InializePayment = async (req, res) => {
                 tx_ref
             });
         } else {
-            return res.status(500).json({ message: 'Failed to initialize payment' });
+            return res.status(500).json({
+                message: 'Failed to initialize payment',
+                error: chapaResponse.data
+            });
         }
     } catch (error) {
         console.error('Error initializing payment:', error.response ? error.response.data : error.message);
@@ -180,8 +185,9 @@ exports.InializePayment = async (req, res) => {
 
 exports.verifyTransaction = async (req, res) => {
     try {
+        console.log('Received transaction verification request:', req.params, req.body);
         const txRef = req.params.tx_ref;
-        const { eventId, ticketType, ticketCount, userId } = req.body; // Receive booking details
+        const { eventId, ticketType, ticketCount, userId } = req.body;
 
         // Validate required fields for booking creation
         if (!eventId || !ticketType || !ticketCount || !userId) {
@@ -196,6 +202,8 @@ exports.verifyTransaction = async (req, res) => {
                 Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`
             }
         });
+
+        console.log('Chapa verification response:', response.data);
 
         if (response.status === 200 && response.data.status === 'success') {
             const { tx_ref, status, amount } = response.data.data;
