@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" /> <!-- Optional, if needed -->
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> <!-- Optional -->
     <application
-        android:label="event_front"
+        android:label="event_booking_app"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

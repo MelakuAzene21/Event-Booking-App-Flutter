@@ -7,7 +7,7 @@ import 'package:event_booking_app/domain/providers/booking_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:event_booking_app/core/config/api_config.dart';
 import 'package:event_booking_app/core/utils/secure_storage.dart';
 
@@ -44,6 +44,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         },
       ).timeout(const Duration(seconds: 10));
 
+      print('Profile fetch response: ${response.statusCode}, ${response.body}');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
@@ -86,23 +87,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         txRef = paymentData['tx_ref'];
 
         if (paymentUrl != null) {
-          final launched = await launchUrl(
-            Uri.parse(paymentUrl),
-            mode: LaunchMode.externalApplication,
-          );
-          if (!launched) throw Exception('Failed to launch payment URL');
-
-          // Show a SnackBar with a manual verification option
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Complete payment and tap "Verify Payment"'),
-              duration: const Duration(seconds: 30),
-              action: SnackBarAction(
-                label: 'Verify Payment',
-                onPressed: _verifyTransaction,
-              ),
-            ),
-          );
+          // Show payment page in an InAppWebView modal
+          await _showPaymentModal(paymentUrl);
         } else {
           throw Exception('Payment URL not found in response');
         }
@@ -119,6 +105,96 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _showPaymentModal(String paymentUrl) async {
+    bool paymentSuccessful = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent closing by tapping outside
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(10),
+          child: Stack(
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Expanded(
+                    child: InAppWebView(
+                      initialUrlRequest: URLRequest(url: WebUri(paymentUrl)),
+                      initialOptions: InAppWebViewGroupOptions(
+                        crossPlatform: InAppWebViewOptions(
+                          javaScriptEnabled: true,
+                          useShouldOverrideUrlLoading: true,
+                        ),
+                        android: AndroidInAppWebViewOptions(
+                          useHybridComposition: true,
+                        ),
+                      ),
+                      onWebViewCreated: (controller) {
+                        print('InAppWebView created');
+                      },
+                      onLoadStart: (controller, url) {
+                        print('InAppWebView loading: $url');
+                      },
+                      onLoadStop: (controller, url) {
+                        print('InAppWebView finished loading: $url');
+                      },
+                      onLoadError: (controller, url, code, message) {
+                        print('InAppWebView error: $code, $message');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error loading payment page: $message')),
+                        );
+                        Navigator.of(context).pop();
+                      },
+                      shouldOverrideUrlLoading: (controller, navigationAction) async {
+                        final url = navigationAction.request.url.toString();
+                        // Detect Chapa success URL (adjust based on Chapa's actual success URL)
+                        if (url.contains('success') || url.contains('chapa.co/success')) {
+                          paymentSuccessful = true;
+                          Navigator.of(context).pop();
+                          return NavigationActionPolicy.CANCEL;
+                        }
+                        // Detect failure or cancel
+                        if (url.contains('cancel') || url.contains('error')) {
+                          Navigator.of(context).pop();
+                          return NavigationActionPolicy.CANCEL;
+                        }
+                        return NavigationActionPolicy.ALLOW;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    // Handle payment result
+    if (paymentSuccessful) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment successful! Verifying transaction...')),
+      );
+      await _verifyTransaction();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment was cancelled or failed')),
+      );
     }
   }
 
