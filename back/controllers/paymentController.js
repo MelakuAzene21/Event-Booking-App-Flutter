@@ -274,7 +274,11 @@ const dotenv = require('dotenv');
 const nanoid = async () => (await import('nanoid')).nanoid;
 const Booking = require('../models/Booking');
 dotenv.config();
-
+const Event = require('../models/Event');
+const Ticket = require('../models/Ticket');
+const User = require('../models/User');
+const QRCode = require('qrcode');
+const sendEmail = require('../helpers/Send-Email');
 exports.InializePayment = async (req, res) => {
     try {
         console.log('Received payment initialization request:', req.body);
@@ -330,10 +334,100 @@ const tx_ref = generateTxRef();
     }
 };
 
+// exports.verifyTransaction = async (req, res) => {
+
+//     try {
+//         console.log('Received transaction verification request:', req.params, req.body);
+//         const { tx_ref } = req.params; // Consistent with route parameter
+//         const { eventId, ticketType, ticketCount, userId } = req.body;
+
+//         // Validate required fields
+//         if (!tx_ref) {
+//             return res.status(400).json({ message: 'Missing transaction reference' });
+//         }
+//         if (!eventId || !ticketType || !ticketCount || !userId) {
+//             return res.status(400).json({ message: 'Missing required fields: eventId, ticketType, ticketCount, userId' });
+//         }
+
+//         const url = `https://api.chapa.co/v1/transaction/verify/${tx_ref}`;
+
+//         // Verify transaction with Chapa API
+//         const response = await axios.get(url, {
+//             headers: {
+//                 Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`
+//             }
+//         });
+
+//         console.log('Chapa verification response:', response.data);
+
+//         if (response.status === 200 && response.data.status === 'success') {
+//             const { tx_ref: verifiedTxRef, status, amount } = response.data.data;
+
+//             if (status === 'success' && verifiedTxRef === tx_ref) {
+//                 // Check if booking already exists
+//                 let book = await Booking.findOne({ tx_ref });
+
+//                 if (book) {
+//                     if (book.status === 'booked') {
+//                         return res.status(200).json({
+//                             success: true,
+//                             message: 'Payment already processed for this booking',
+//                             bookingId: book._id,
+//                             book
+//                         });
+//                     } else if (book.status === 'pending') {
+//                         book.status = 'booked';
+//                         await book.save();
+//                         return res.status(200).json({
+//                             success: true,
+//                             message: 'Transaction verified and booking updated successfully',
+//                             bookingId: book._id,
+//                             book
+//                         });
+//                     }
+//                 } else {
+//                     // Create new booking
+//                     book = await Booking.create({
+//                         event: eventId,
+//                         user: userId,
+//                         ticketType,
+//                         ticketCount,
+//                         totalAmount: amount,
+//                         tx_ref,
+//                         status: 'booked'
+//                     });
+//                     return res.status(200).json({
+//                         success: true,
+//                         message: 'Transaction verified and booking created successfully',
+//                         bookingId: book._id,
+//                         book
+//                     });
+//                 }
+//             }
+//         }
+
+//         // Transaction verification failed
+//         res.status(400).json({
+//             success: false,
+//             message: 'Transaction verification failed or invalid transaction reference'
+//         });
+//     } catch (error) {
+//         console.error('Error verifying transaction:', error.response ? error.response.data : error.message);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error verifying transaction',
+//             error: error.response ? error.response.data : error.message
+//         });
+//     }
+// };
+
+
+
+
 exports.verifyTransaction = async (req, res) => {
     try {
         console.log('Received transaction verification request:', req.params, req.body);
-        const { tx_ref } = req.params; // Consistent with route parameter
+        const { tx_ref } = req.params;
         const { eventId, ticketType, ticketCount, userId } = req.body;
 
         // Validate required fields
@@ -356,7 +450,7 @@ exports.verifyTransaction = async (req, res) => {
         console.log('Chapa verification response:', response.data);
 
         if (response.status === 200 && response.data.status === 'success') {
-            const { tx_ref: verifiedTxRef, status, amount } = response.data.data;
+            const { tx_ref: verifiedTxRef, status, amount, id } = response.data.data;
 
             if (status === 'success' && verifiedTxRef === tx_ref) {
                 // Check if booking already exists
@@ -389,13 +483,92 @@ exports.verifyTransaction = async (req, res) => {
                         ticketCount,
                         totalAmount: amount,
                         tx_ref,
+                        paymentId: tx_ref, // Assuming 'id' is the transaction ID from Chapa
                         status: 'booked'
                     });
+
+                    // Find the event
+                    const event = await Event.findById(eventId);
+                    if (!event) {
+                        // Optionally rollback booking if event not found
+                        await Booking.deleteOne({ _id: book._id });
+                        return res.status(404).json({ message: 'Event not found' });
+                    }
+
+                    // Update ticket availability
+                    let updatedTicketTypes = event.ticketTypes.map(ticket => {
+                        if (ticket.name === ticketType) {
+                            ticket.booked = (ticket.booked ?? 0) + Number(ticketCount);
+                            ticket.available = (ticket.available ?? ticket.limit) - Number(ticketCount);
+                        }
+                        return ticket;
+                    });
+
+                    event.ticketTypes = updatedTicketTypes;
+                    await event.save();
+
+                    // Generate tickets and QR codes
+                    const tickets = [];
+                    const qrCodeAttachments = [];
+
+                    for (let i = 0; i < ticketCount; i++) {
+                        // Generate a unique ticket number
+                        const ticketNumber = `TCK-${Date.now()}-${i}`;
+
+                        // Generate QR code data
+                        const qrData = `${ticketNumber}-${userId}-${eventId}`;
+
+                        // Generate QR code as Data URL
+                        const qrCodeImage = await QRCode.toDataURL(qrData);
+
+                        // Save ticket in the database
+                        const ticket = await Ticket.create({
+                            booking: book._id,
+                            event: eventId,
+                            user: userId,
+                            ticketNumber,
+                            qrCode: qrData,
+                            isUsed: false
+                        });
+
+                        tickets.push(ticket);
+
+                        // Push QR code as an attachment
+                        qrCodeAttachments.push({
+                            filename: `Ticket-${i + 1}.png`,
+                            content: qrCodeImage.split("base64,")[1],
+                            encoding: "base64"
+                        });
+                    }
+
+                    // Fetch user for email
+                    const attendee = await User.findById(userId);
+                    if (!attendee) {
+                        console.warn('User not found for email notification:', userId);
+                    } else {
+                        // Create ticket details for email
+                        const ticketDetails = tickets.map((ticket, index) => `
+                            <p><strong>Ticket ${index + 1}:</strong> ${ticket.ticketNumber}</p>
+                        `).join('');
+
+                        // Send booking confirmation email
+                        await sendEmail(attendee.email, "Your Ticket Booking Confirmation", "ticketConfirmation", {
+                            name: attendee.name,
+                            eventTitle: event.title,
+                            eventDate: event.eventDate.toDateString(),
+                            eventTime: event.eventTime,
+                            eventLocation: event.location,
+                            ticketCount,
+                            ticketDetails
+                        }, qrCodeAttachments);
+                    }
+
                     return res.status(200).json({
                         success: true,
-                        message: 'Transaction verified and booking created successfully',
+                        message: 'Transaction verified, booking created, tickets generated, and event updated successfully',
                         bookingId: book._id,
-                        book
+                        book,
+                        tickets
                     });
                 }
             }
