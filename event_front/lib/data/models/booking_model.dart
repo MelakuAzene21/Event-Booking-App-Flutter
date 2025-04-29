@@ -16,13 +16,17 @@ class BookingModel {
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
+    String safeString(dynamic value, {String defaultValue = ''}) {
+      return value?.toString() ?? defaultValue;
+    }
+
     return BookingModel(
-      id: json['_id'],
-      eventId: json['event'],
-      userId: json['user'],
-      ticketType: json['ticketType'],
-      ticketCount: json['ticketCount'],
-      totalAmount: (json['totalAmount'] as num).toDouble(),
+      id: safeString(json['_id']),
+      eventId: safeString(json['event']),
+      userId: safeString(json['user']),
+      ticketType: safeString(json['ticketType'], defaultValue: 'Unknown'),
+      ticketCount: json['ticketCount'] as int? ?? 0,
+      totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 0.0,
     );
   }
 

@@ -22,14 +22,19 @@ class TicketsScreen extends ConsumerWidget {
           if (tickets.isEmpty) {
             return const Center(child: Text('No tickets purchased yet'));
           }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: tickets.length,
-            itemBuilder: (context, index) {
-              return TicketCard(ticket: tickets[index])
-                  .animate()
-                  .fadeIn(delay: Duration(milliseconds: index * 100));
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(ticketsProvider);
             },
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: tickets.length,
+              itemBuilder: (context, index) {
+                return TicketCard(ticket: tickets[index])
+                    .animate()
+                    .fadeIn(delay: Duration(milliseconds: index * 100));
+              },
+            ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -40,7 +45,7 @@ class TicketsScreen extends ConsumerWidget {
               Text('Error: $error'),
               const SizedBox(height: 8),
               ElevatedButton(
-                onPressed: () => ref.refresh(ticketProvider),
+                onPressed: () => ref.refresh(ticketsProvider),
                 child: const Text('Retry'),
               ),
             ],

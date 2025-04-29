@@ -18,19 +18,48 @@ class TicketCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Event: ${ticket.event!.title}', style: Theme.of(context).textTheme.titleMedium),
-            Text('Ticket: ${ticket.ticketNumber}'),
+            Text(
+              'Event: ${ticket.event?.title ?? 'Unknown Event'}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            Text('Ticket: ${ticket.ticketNumber.isEmpty ? 'N/A' : ticket.ticketNumber}'),
             Text('Status: ${ticket.isUsed ? 'Used' : 'Valid'}'),
             const SizedBox(height: 8),
-            QrImageView(data: ticket.qrCode, size: 100),
+            QrImageView(
+              data: ticket.qrCode.isEmpty ? 'N/A' : ticket.qrCode,
+              size: 100,
+            ),
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
               child: IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
                 onPressed: () async {
-                  await ref.read(ticketProvider.notifier).deleteTicket(ticket.id);
-                  ref.invalidate(ticketsProvider);
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete Ticket'),
+                      content: const Text('Are you sure you want to delete this ticket?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm == true) {
+                    await ref.read(ticketProvider.notifier).deleteTicket(ticket.id);
+                    ref.invalidate(ticketsProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Ticket deleted successfully')),
+                    );
+                  }
                 },
               ),
             ),

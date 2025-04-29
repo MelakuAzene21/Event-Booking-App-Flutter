@@ -3,7 +3,7 @@ const Ticket = require("../models/Ticket");
 exports.UserTicket = async (req, res) => {
     try {
         const userId = req.user.id; // Extract user ID from the verified token
-        const tickets = await Ticket.find({ user: userId }).populate("event", "title eventDate eventTime location").populate("booking", "totalAmount  ticketType").populate("user", "name");
+        const tickets = await Ticket.find({ user: userId }).populate("event", "title eventDate eventTime location").populate("booking", "event user ticketType ticketCount totalAmount").populate("user", "name");
 
         if (!tickets || tickets.length === 0) {
             return res.status(404).json({ message: "No tickets found for this user." });

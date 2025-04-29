@@ -8,29 +8,55 @@ class TicketRepository {
   Future<List<TicketModel>> getUserTickets() async {
     final token = await SecureStorage.getToken();
     if (token == null) throw Exception('No token found');
-    final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.userTicketsEndpoint}'),
-      headers: {'Cookie': 'token=$token'},
-    );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => TicketModel.fromJson(json)).toList();
-    } else {
-      throw Exception(jsonDecode(response.body)['message']);
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.userTicketsEndpoint}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': 'token=$token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      print('Get tickets response: ${response.statusCode}');
+      print('Raw response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        print('Parsed tickets data: $data');
+        return data.map((json) => TicketModel.fromJson(json)).toList();
+      } else {
+        final error = jsonDecode(response.body)['message'] ?? 'Failed to fetch tickets';
+        throw Exception(error);
+      }
+    } catch (e) {
+      print('Error fetching tickets: $e');
+      rethrow;
     }
   }
 
   Future<void> deleteTicket(String ticketId) async {
     final token = await SecureStorage.getToken();
     if (token == null) throw Exception('No token found');
-    final response = await http.delete(
-      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.deleteTicketEndpoint}/$ticketId'),
-      headers: {'Cookie': 'token=$token'},
-    );
 
-    if (response.statusCode != 200) {
-      throw Exception(jsonDecode(response.body)['message']);
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.deleteTicketEndpoint}/$ticketId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': 'token=$token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      print('Delete ticket response: ${response.statusCode}, ${response.body}');
+
+      if (response.statusCode != 200) {
+        final error = jsonDecode(response.body)['message'] ?? 'Failed to delete ticket';
+        throw Exception(error);
+      }
+    } catch (e) {
+      print('Error deleting ticket: $e');
+      rethrow;
     }
   }
 }
