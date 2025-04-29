@@ -14,7 +14,7 @@ const BookingSchema = new mongoose.Schema(
         required: true }, // Number of tickets
        totalAmount: { type: Number,
         required: true }, // Total amount of the tickets
-      paymentId: { type: String, required: true }, // Payment ID from the payment gateway
+      paymentId: { type: String, required: false }, // Payment ID from the payment gateway
       tx_ref: { // Add tx_ref to track the transaction reference
          type: String,
          required: true,
