@@ -67,7 +67,7 @@ const router = express.Router();
 
 
 router.post('/initialize', verifyToken,InializePayment)
-router.get('/verify-transaction/:tx_ref', verifyTransaction) 
+router.post('/verify-transaction/:tx_ref',verifyToken, verifyTransaction) 
 // router.get('/verify-transaction/:tx_ref', async (req, res) => {
 //     try {
 //         const txRef = req.params.tx_ref; // Get tx_ref from the route parameter

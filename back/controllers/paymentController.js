@@ -121,6 +121,154 @@
 
 
 
+// const axios = require('axios');
+// const dotenv = require('dotenv');
+// const nanoid = async () => (await import('nanoid')).nanoid;
+// const Booking = require('../models/Booking');
+// dotenv.config();
+
+// exports.InializePayment = async (req, res) => {
+//     try {
+//         console.log('Received payment initialization request:', req.body);
+//         const { amount, currency } = req.body;
+
+//         if (!amount || !currency) {
+//             return res.status(400).json({ message: 'Missing required fields: amount and currency' });
+//         }
+
+//         // Generate unique transaction reference
+//         const generateTxRef = await nanoid();
+// const tx_ref = generateTxRef();
+
+
+//         // Prepare Chapa payment data
+//         const paymentData = {
+//             amount,
+//             tx_ref,
+//             currency
+//         };
+
+//         // Make request to Chapa's initialize endpoint
+//         const chapaResponse = await axios.post(
+//             'https://api.chapa.co/v1/transaction/initialize', // Updated endpoint
+//             paymentData,
+//             {
+//                 headers: {
+//                     Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`,
+//                     'Content-Type': 'application/json'
+//                 }
+//             }
+//         );
+
+//         console.log('Chapa API response:', chapaResponse.data);
+
+//         if (chapaResponse.data.status === 'success') {
+//             return res.status(200).json({
+//                 message: 'Payment initialized successfully',
+//                 paymentUrl: chapaResponse.data.data.checkout_url,
+//                 tx_ref
+//             });
+//         } else {
+//             return res.status(500).json({
+//                 message: 'Failed to initialize payment',
+//                 error: chapaResponse.data
+//             });
+//         }
+//     } catch (error) {
+//         console.error('Error initializing payment:', error.response ? error.response.data : error.message);
+//         res.status(500).json({
+//             message: 'Error initializing payment',
+//             error: error.response ? error.response.data : error.message
+//         });
+//     }
+// };
+
+// exports.verifyTransaction = async (req, res) => {
+//     try {
+//         console.log('Received transaction verification request:', req.params, req.body);
+//         const txRef = req.params.tx_ref;
+//         const { eventId, ticketType, ticketCount, userId } = req.body;
+
+//         // Validate required fields for booking creation
+//         if (!eventId || !ticketType || !ticketCount || !userId) {
+//             return res.status(400).json({ message: 'Missing required fields for booking creation' });
+//         }
+
+//         const url = `https://api.chapa.co/v1/transaction/verify/${txRef}`;
+
+//         // Verify transaction with Chapa API
+//         const response = await axios.get(url, {
+//             headers: {
+//                 Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`
+//             }
+//         });
+
+//         console.log('Chapa verification response:', response.data);
+
+//         if (response.status === 200 && response.data.status === 'success') {
+//             const { tx_ref, status, amount } = response.data.data;
+
+//             if (status === 'success' && tx_ref) {
+//                 // Check if booking already exists
+//                 let book = await Booking.findOne({ tx_ref });
+
+//                 if (book) {
+//                     if (book.status === 'booked') {
+//                         return res.status(200).json({
+//                             success: true,
+//                             message: 'Payment already processed for this booking',
+//                             bookingId: book._id,
+//                             book
+//                         });
+//                     } else if (book.status === 'pending') {
+//                         // Update existing pending booking to booked
+//                         book.status = 'booked';
+//                         await book.save();
+//                         return res.status(200).json({
+//                             success: true,
+//                             message: 'Transaction verified and booking updated successfully',
+//                             bookingId: book._id,
+//                             book
+//                         });
+//                     }
+//                 } else {
+//                     // Create new booking
+//                     book = await Booking.create({
+//                         event: eventId,
+//                         user: userId,
+//                         ticketType,
+//                         ticketCount,
+//                         totalAmount: amount,
+//                         tx_ref,
+//                         status: 'booked'
+//                     });
+//                     return res.status(200).json({
+//                         success: true,
+//                         message: 'Transaction verified and booking created successfully',
+//                         bookingId: book._id,
+//                         book
+//                     });
+//                 }
+//             }
+//         }
+
+//         // Transaction verification failed
+//         res.status(400).json({
+//             success: false,
+//             message: 'Transaction verification failed or invalid transaction reference'
+//         });
+//     } catch (error) {
+//         console.error('Error verifying transaction:', error.response ? error.response.data : error.message);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error verifying transaction',
+//             error: error.response ? error.response.data : error.message
+//         });
+//     }
+// };
+
+
+
 const axios = require('axios');
 const dotenv = require('dotenv');
 const nanoid = async () => (await import('nanoid')).nanoid;
@@ -140,7 +288,6 @@ exports.InializePayment = async (req, res) => {
         const generateTxRef = await nanoid();
 const tx_ref = generateTxRef();
 
-
         // Prepare Chapa payment data
         const paymentData = {
             amount,
@@ -150,7 +297,7 @@ const tx_ref = generateTxRef();
 
         // Make request to Chapa's initialize endpoint
         const chapaResponse = await axios.post(
-            'https://api.chapa.co/v1/transaction/initialize', // Updated endpoint
+            'https://api.chapa.co/v1/transaction/initialize',
             paymentData,
             {
                 headers: {
@@ -186,15 +333,18 @@ const tx_ref = generateTxRef();
 exports.verifyTransaction = async (req, res) => {
     try {
         console.log('Received transaction verification request:', req.params, req.body);
-        const txRef = req.params.tx_ref;
+        const { tx_ref } = req.params; // Consistent with route parameter
         const { eventId, ticketType, ticketCount, userId } = req.body;
 
-        // Validate required fields for booking creation
+        // Validate required fields
+        if (!tx_ref) {
+            return res.status(400).json({ message: 'Missing transaction reference' });
+        }
         if (!eventId || !ticketType || !ticketCount || !userId) {
-            return res.status(400).json({ message: 'Missing required fields for booking creation' });
+            return res.status(400).json({ message: 'Missing required fields: eventId, ticketType, ticketCount, userId' });
         }
 
-        const url = `https://api.chapa.co/v1/transaction/verify/${txRef}`;
+        const url = `https://api.chapa.co/v1/transaction/verify/${tx_ref}`;
 
         // Verify transaction with Chapa API
         const response = await axios.get(url, {
@@ -206,9 +356,9 @@ exports.verifyTransaction = async (req, res) => {
         console.log('Chapa verification response:', response.data);
 
         if (response.status === 200 && response.data.status === 'success') {
-            const { tx_ref, status, amount } = response.data.data;
+            const { tx_ref: verifiedTxRef, status, amount } = response.data.data;
 
-            if (status === 'success' && tx_ref) {
+            if (status === 'success' && verifiedTxRef === tx_ref) {
                 // Check if booking already exists
                 let book = await Booking.findOne({ tx_ref });
 
@@ -221,7 +371,6 @@ exports.verifyTransaction = async (req, res) => {
                             book
                         });
                     } else if (book.status === 'pending') {
-                        // Update existing pending booking to booked
                         book.status = 'booked';
                         await book.save();
                         return res.status(200).json({

@@ -87,7 +87,6 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         txRef = paymentData['tx_ref'];
 
         if (paymentUrl != null) {
-          // Show payment page in an InAppWebView modal
           await _showPaymentModal(paymentUrl);
         } else {
           throw Exception('Payment URL not found in response');
@@ -113,84 +112,95 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     await showDialog(
       context: context,
-      barrierDismissible: false, // Prevent closing by tapping outside
+      barrierDismissible: false,
       builder: (context) {
         return Dialog(
-          insetPadding: const EdgeInsets.all(10),
-          child: Stack(
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Expanded(
-                    child: InAppWebView(
-                      initialUrlRequest: URLRequest(url: WebUri(paymentUrl)),
-                      initialOptions: InAppWebViewGroupOptions(
-                        crossPlatform: InAppWebViewOptions(
-                          javaScriptEnabled: true,
-                          useShouldOverrideUrlLoading: true,
-                        ),
-                        android: AndroidInAppWebViewOptions(
-                          useHybridComposition: true,
-                        ),
-                      ),
-                      onWebViewCreated: (controller) {
-                        print('InAppWebView created');
-                      },
-                      onLoadStart: (controller, url) {
-                        print('InAppWebView loading: $url');
-                      },
-                      onLoadStop: (controller, url) {
-                        print('InAppWebView finished loading: $url');
-                      },
-                      onLoadError: (controller, url, code, message) {
-                        print('InAppWebView error: $code, $message');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error loading payment page: $message')),
-                        );
-                        Navigator.of(context).pop();
-                      },
-                      shouldOverrideUrlLoading: (controller, navigationAction) async {
-                        final url = navigationAction.request.url.toString();
-                        // Detect Chapa success URL (adjust based on Chapa's actual success URL)
-                        if (url.contains('success') || url.contains('chapa.co/success')) {
-                          paymentSuccessful = true;
-                          Navigator.of(context).pop();
-                          return NavigationActionPolicy.CANCEL;
-                        }
-                        // Detect failure or cancel
-                        if (url.contains('cancel') || url.contains('error')) {
-                          Navigator.of(context).pop();
-                          return NavigationActionPolicy.CANCEL;
-                        }
-                        return NavigationActionPolicy.ALLOW;
-                      },
+          insetPadding: const EdgeInsets.all(0),
+          child: Container(
+            width: double.infinity,
+            height: MediaQuery.of(context).size.height * 0.9,
+            child: Stack(
+              children: [
+                InAppWebView(
+                  initialUrlRequest: URLRequest(url: WebUri(paymentUrl)),
+                  initialOptions: InAppWebViewGroupOptions(
+                    crossPlatform: InAppWebViewOptions(
+                      javaScriptEnabled: true,
+                      useShouldOverrideUrlLoading: true,
+                      mediaPlaybackRequiresUserGesture: false,
+                      cacheEnabled: true,
+                      clearCache: false,
+                      javaScriptCanOpenWindowsAutomatically: false,
+                      resourceCustomSchemes: [],
+                    ),
+                    android: AndroidInAppWebViewOptions(
+                      useHybridComposition: true,
+                      hardwareAcceleration: true,
                     ),
                   ),
-                ],
-              ),
-              Positioned(
-                top: 10,
-                right: 10,
-                child: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () {
+                  onWebViewCreated: (controller) {
+                    print('InAppWebView created');
+                  },
+                  onLoadStart: (controller, url) {
+                    print('InAppWebView loading: $url');
+                  },
+                  onLoadStop: (controller, url) {
+                    print('InAppWebView finished loading: $url');
+                  },
+                  onLoadError: (controller, url, code, message) {
+                    print('InAppWebView error: $code, $message');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error loading payment page: $message')),
+                    );
                     Navigator.of(context).pop();
                   },
+                  onRenderProcessGone: (controller, details) {
+                    print('InAppWebView renderer crashed: $details');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Payment page crashed. Please try again.')),
+                    );
+                    Navigator.of(context).pop();
+                  },
+                  shouldOverrideUrlLoading: (controller, navigationAction) async {
+                    final url = navigationAction.request.url.toString();
+                    print('Navigating to: $url');
+                    if (url.contains('test-payment-receipt') || url.contains('payment-receipt') || url.contains('success')) {
+                      paymentSuccessful = true;
+                      Navigator.of(context).pop();
+                      return NavigationActionPolicy.CANCEL;
+                    }
+                    if (url.contains('cancel') || url.contains('error')) {
+                      Navigator.of(context).pop();
+                      return NavigationActionPolicy.CANCEL;
+                    }
+                    return NavigationActionPolicy.ALLOW;
+                  },
                 ),
-              ),
-            ],
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      if (txRef != null) {
+                        await _verifyTransaction();
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
 
-    // Handle payment result
     if (paymentSuccessful) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Payment successful! Verifying transaction...')),
       );
-      await _verifyTransaction();
+      Future.microtask(() => _verifyTransaction());
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Payment was cancelled or failed')),
@@ -236,27 +246,40 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
       print('Transaction verification response: ${response.statusCode}, ${response.body}');
 
-      if (response.statusCode == 200) {
-        final verifyData = jsonDecode(response.body);
-        if (verifyData['success']) {
-          setState(() {
-            booking = BookingModel.fromJson(verifyData['book']);
-            showQrCode = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Payment and booking successful!')),
-          );
-        } else {
-          throw Exception(verifyData['message'] ?? 'Transaction verification failed');
-        }
+      final contentType = response.headers['content-type'];
+      if (contentType == null || !contentType.contains('application/json')) {
+        throw Exception('Invalid server response: Expected JSON, received ${contentType ?? 'unknown'}');
+      }
+
+      final verifyData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && verifyData['success']) {
+        setState(() {
+          booking = BookingModel.fromJson(verifyData['book']);
+          showQrCode = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment and booking successful!'),
+            duration: Duration(seconds: 3),
+          ),
+        );
       } else {
-        final errorMessage = jsonDecode(response.body)['message'] ?? 'Failed to verify transaction';
-        throw Exception('Server error: $errorMessage');
+        final errorMessage = verifyData['message'] ?? 'Failed to verify transaction';
+        throw Exception('Server error: $errorMessage (Status: ${response.statusCode})');
       }
     } catch (e) {
       print('Error verifying transaction: $e');
+      String errorMessage;
+      if (e.toString().contains('404')) {
+        errorMessage = 'Transaction verification endpoint not found. Please contact support.';
+      } else if (e.toString().contains('Invalid server response')) {
+        errorMessage = 'Invalid server response. Please try again or contact support.';
+      } else {
+        errorMessage = 'Error verifying transaction: ${e.toString()}';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error verifying transaction: ${e.toString()}')),
+        SnackBar(content: Text(errorMessage)),
       );
     } finally {
       setState(() {
@@ -280,10 +303,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text('Booking Successful!', style: TextStyle(fontSize: 20)),
+                  const SizedBox(height: 20),
                   QrImageView(
                     data: 'TCK-${booking!.id}-${booking!.userId}-${booking!.eventId}',
                     size: 200,
                   ),
+                  const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () => context.push('/tickets'),
                     child: const Text('View Tickets'),
