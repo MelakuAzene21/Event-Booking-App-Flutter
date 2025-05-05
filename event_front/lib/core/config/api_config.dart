@@ -27,4 +27,6 @@ class ApiConfig {
   static const String deleteTicketEndpoint = '/tickets/delete';
   static const String toggleBookmarkEndpoint = '/bookmarks/event/:eventId/toggle';
   static const String bookmarkedEventsEndpoint = '/bookmarks/bookmarkedEvents';
+    static const String likeEndpoint = '/events/userLike';
+
 }

@@ -1,7 +1,3 @@
-// import 'package:event_booking_app/data/models/location_model.dart';
-// import 'package:event_booking_app/data/models/organizer_model.dart';
-// import 'package:event_booking_app/data/models/ticket_type_model.dart';
-
 class EventModel {
   final String id;
   final String title;
@@ -12,6 +8,7 @@ class EventModel {
   final List<String> images;
   final String category;
   final int likes;
+  final List<String> usersLiked;
   final OrganizerModel organizer;
   final List<TicketTypeModel> ticketTypes;
   final bool isBookmarked;
@@ -26,13 +23,14 @@ class EventModel {
     this.images = const [],
     this.category = '',
     this.likes = 0,
+    this.usersLiked = const [],
     required this.organizer,
     this.ticketTypes = const [],
     this.isBookmarked = false,
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
-    print('Parsing event JSON: $json'); // Debug: Log JSON
+    print('Parsing event JSON: $json');
     try {
       return EventModel(
         id: json['_id'] as String? ?? '',
@@ -48,6 +46,7 @@ class EventModel {
         images: (json['images'] as List<dynamic>?)?.cast<String>() ?? [],
         category: json['category'] as String? ?? '',
         likes: (json['likes'] as num?)?.toInt() ?? 0,
+        usersLiked: (json['usersLiked'] as List<dynamic>?)?.cast<String>() ?? [],
         organizer: json['user'] != null
             ? OrganizerModel.fromJson(json['user'] as Map<String, dynamic>)
             : OrganizerModel(name: '', email: ''),
@@ -55,7 +54,7 @@ class EventModel {
         isBookmarked: json['isBookmarked'] as bool? ?? false,
       );
     } catch (e) {
-      print('Error parsing EventModel: $e'); // Debug: Log error
+      print('Error parsing EventModel: $e');
       rethrow;
     }
   }

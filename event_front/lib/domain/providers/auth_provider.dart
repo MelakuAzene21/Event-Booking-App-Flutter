@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:event_booking_app/core/utils/secure_storage.dart';
@@ -23,6 +24,8 @@ class AuthState {
     this.error,
   });
 
+  String? get userId => user?.id;
+
   AuthState copyWith({
     UserModel? user,
     String? token,
@@ -47,7 +50,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _checkAuthStatus() async {
     final token = await SecureStorage.getToken();
-    print('Checking auth status, token: $token'); // Debug: Log token
+    if (kDebugMode) {
+      print('Checking auth status, token: $token');
+    }
     if (token != null && !JwtDecoder.isExpired(token)) {
       try {
         final user = await _authRepository.getProfile();
@@ -58,7 +63,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
           error: null,
         );
       } catch (e) {
-        print('Error checking auth status: $e'); // Debug: Log error
+        if (kDebugMode) {
+          print('Error checking auth status: $e');
+        }
         await SecureStorage.deleteToken();
         state = state.copyWith(
           user: null,
@@ -74,7 +81,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final user = await _authRepository.login(email, password);
       final token = await SecureStorage.getToken();
-      print('Login successful, token: $token'); // Debug: Log token
+      if (kDebugMode) {
+        print('Login successful, token: $token, user: ${user.id}');
+      }
       state = state.copyWith(
         user: user,
         token: token,
@@ -82,7 +91,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: null,
       );
     } catch (e) {
-      print('Login error: $e'); // Debug: Log error
+      if (kDebugMode) {
+        print('Login error: $e');
+      }
       state = state.copyWith(error: e.toString());
     }
   }
@@ -96,7 +107,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: null,
       );
     } catch (e) {
-      print('Register error: $e'); // Debug: Log error
+      if (kDebugMode) {
+        print('Register error: $e');
+      }
       state = state.copyWith(error: e.toString());
     }
   }
@@ -112,7 +125,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: null,
       );
     } catch (e) {
-      print('Logout error: $e'); // Debug: Log error
+      if (kDebugMode) {
+        print('Logout error: $e');
+      }
       state = state.copyWith(error: e.toString());
     }
   }
@@ -122,7 +137,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = await _authRepository.getProfile();
       state = state.copyWith(user: user, error: null);
     } catch (e) {
-      print('Get profile error: $e'); // Debug: Log error
+      if (kDebugMode) {
+        print('Get profile error: $e');
+      }
       state = state.copyWith(error: e.toString());
     }
   }

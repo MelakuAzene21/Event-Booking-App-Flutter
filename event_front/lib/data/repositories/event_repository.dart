@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:event_booking_app/core/config/api_config.dart';
 import 'package:event_booking_app/data/models/event_model.dart';
@@ -8,13 +9,17 @@ class EventRepository {
   Future<List<EventModel>> getEvents() async {
     final token = await SecureStorage.getToken();
     final Map<String, String> headers = token != null ? {'Authorization': 'Bearer $token'} : {};
-    print('Get events headers: $headers'); // Debug: Log headers
+    if (kDebugMode) {
+      print('Get events headers: $headers');
+    }
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}${ApiConfig.eventsEndpoint}'),
       headers: headers,
     );
 
-    print('Raw response body: ${response.body}'); // Debug: Log raw response
+    if (kDebugMode) {
+      print('Raw response body: ${response.body}');
+    }
 
     if (response.statusCode == 200) {
       final dynamic data = jsonDecode(response.body);
@@ -22,7 +27,7 @@ class EventRepository {
       if (eventList.isNotEmpty) {
         return eventList.map((json) => EventModel.fromJson(json)).toList();
       } else {
-        throw Exception('No events found in response');
+        return [];
       }
     } else {
       throw Exception(jsonDecode(response.body)['message'] ?? 'Failed to fetch events');
@@ -32,13 +37,17 @@ class EventRepository {
   Future<EventModel> getEventDetails(String id) async {
     final token = await SecureStorage.getToken();
     final Map<String, String> headers = token != null ? {'Authorization': 'Bearer $token'} : {};
-    print('Get event details headers: $headers'); // Debug: Log headers
+    if (kDebugMode) {
+      print('Get event details headers: $headers');
+    }
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}${ApiConfig.eventDetailsEndpoint}/$id'),
       headers: headers,
     );
 
-    print('Raw event details response: ${response.body}'); // Debug: Log raw response
+    if (kDebugMode) {
+      print('Raw event details response: ${response.body}');
+    }
 
     if (response.statusCode == 200) {
       return EventModel.fromJson(jsonDecode(response.body));
@@ -57,15 +66,19 @@ class EventRepository {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
     };
-    print('Toggle bookmark headers: $headers'); // Debug: Log headers
-    print('Toggle bookmark URL: ${ApiConfig.baseUrl}/bookmarks/event/$eventId/toggle'); // Debug: Log URL
+    if (kDebugMode) {
+      print('Toggle bookmark headers: $headers');
+      print('Toggle bookmark URL: ${ApiConfig.baseUrl}${ApiConfig.toggleBookmarkEndpoint.replaceFirst(':eventId', eventId)}');
+    }
 
     final response = await http.post(
-      Uri.parse('${ApiConfig.baseUrl}/bookmarks/event/$eventId/toggle'),
+      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.toggleBookmarkEndpoint.replaceFirst(':eventId', eventId)}'),
       headers: headers,
     );
 
-    print('Toggle bookmark response: ${response.statusCode} - ${response.body}'); // Debug: Log response
+    if (kDebugMode) {
+      print('Toggle bookmark response: ${response.statusCode} - ${response.body}');
+    }
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return;
@@ -83,13 +96,17 @@ class EventRepository {
     }
 
     final Map<String, String> headers = {'Authorization': 'Bearer $token'};
-    print('Get bookmarked events headers: $headers'); // Debug: Log headers
+    if (kDebugMode) {
+      print('Get bookmarked events headers: $headers');
+    }
     final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/bookmarks/bookmarkedEvents'),
+      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.bookmarkedEventsEndpoint}'),
       headers: headers,
     );
 
-    print('Get bookmarked events response: ${response.statusCode} - ${response.body}'); // Debug: Log response
+    if (kDebugMode) {
+      print('Get bookmarked events response: ${response.statusCode} - ${response.body}');
+    }
 
     if (response.statusCode == 200) {
       final dynamic data = jsonDecode(response.body);
@@ -98,7 +115,7 @@ class EventRepository {
       } else if (data is Map && data['events'] != null) {
         return (data['events'] as List).map((json) => EventModel.fromJson(json)).toList();
       } else {
-        return []; // Return empty list if no events found
+        return [];
       }
     } else {
       final dynamic errorData = jsonDecode(response.body);
@@ -108,9 +125,50 @@ class EventRepository {
       if (response.statusCode == 401) {
         throw Exception('Authentication failed. Please log in again.');
       } else if (response.statusCode == 404) {
-        return []; // Handle "No bookmarks found" gracefully
+        return [];
       }
       throw Exception(errorMessage);
+    }
+  }
+
+  Future<void> toggleLike(String eventId, String userId) async {
+    final token = await SecureStorage.getToken();
+    if (token == null) {
+      throw Exception('No authentication token found. Please log in.');
+    }
+
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    final body = jsonEncode({'userId': userId});
+
+    if (kDebugMode) {
+      print('Toggle like headers: $headers');
+      print('Toggle like body: $body');
+      print('Toggle like URL: ${ApiConfig.baseUrl}${ApiConfig.likeEndpoint}/$eventId');
+    }
+
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.likeEndpoint}/$eventId'),
+      headers: headers,
+      body: body,
+    );
+
+    if (kDebugMode) {
+      print('Toggle like response: ${response.statusCode} - ${response.body}');
+    }
+
+    if (response.statusCode == 200) {
+      return;
+    } else if (response.statusCode == 401) {
+      throw Exception('Authentication failed. Please log in again.');
+    } else if (response.statusCode == 400) {
+      throw Exception('User ID is required.');
+    } else if (response.statusCode == 404) {
+      throw Exception('Event not found.');
+    } else {
+      throw Exception(jsonDecode(response.body)['message'] ?? 'Failed to toggle like.');
     }
   }
 }

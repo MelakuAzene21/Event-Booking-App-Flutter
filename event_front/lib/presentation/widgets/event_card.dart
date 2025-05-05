@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/foundation.dart';
 import 'package:event_booking_app/data/models/event_model.dart';
+import 'package:event_booking_app/domain/providers/event_provider.dart';
+import 'package:event_booking_app/domain/providers/auth_provider.dart';
 
-class EventCard extends StatelessWidget {
+class EventCard extends ConsumerWidget {
   final EventModel event;
 
   const EventCard({super.key, required this.event});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final userId = ref.watch(userIdProvider);
+    final isLiked = userId != null && event.usersLiked.contains(userId);
+
     return GestureDetector(
       onTap: () => context.push('/event/${event.id}'),
       child: Hero(
@@ -21,7 +29,7 @@ class EventCard extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           clipBehavior: Clip.antiAlias,
           child: SizedBox(
-            height: 260, // Constrain card height to prevent overflow
+            height: 260,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -39,22 +47,11 @@ class EventCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
                           errorWidget: (context, url, error) {
-                            print('Image load error for Event ID: ${event.id}, URL: $url, Error: $error');
+                            if (kDebugMode) {
+                              print('Image load error for Event ID: ${event.id}, URL: $url, Error: $error');
+                            }
                             return const Icon(Icons.broken_image, size: 50, color: Colors.grey);
                           },
-                        ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: CircleAvatar(
-                          backgroundColor: Colors.black54,
-                          radius: 16,
-                          child: Icon(
-                            event.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                            color: Colors.white,
-                            size: 20,
-                          ),
                         ),
                       ),
                     ],
@@ -97,15 +94,76 @@ class EventCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Row(
-                            children: [
-                              const Icon(Icons.favorite, size: 16, color: Colors.red),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${event.likes}',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
+                          GestureDetector(
+                            onTap: () async {
+                              if (!authState.isAuthenticated || userId == null) {
+                                context.push('/login');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please log in to like events'),
+                                    backgroundColor: Colors.orange,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                                return;
+                              }
+                              try {
+                                if (kDebugMode) {
+                                  print('Toggling like for event: ${event.id}, user: $userId');
+                                }
+                                await ref.read(eventRepositoryProvider).toggleLike(event.id, userId);
+                                ref.invalidate(eventsProvider);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isLiked ? 'Like removed' : 'Event liked!',
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                    backgroundColor: Colors.green,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (kDebugMode) {
+                                  print('Error toggling like: $e');
+                                }
+                                String errorMessage = e.toString();
+                                if (errorMessage.contains('Authentication failed')) {
+                                  errorMessage = 'Session expired. Please log in again.';
+                                  context.push('/login');
+                                } else if (errorMessage.contains('Event not found')) {
+                                  errorMessage = 'This event is no longer available.';
+                                } else if (errorMessage.contains('User ID is required')) {
+                                  errorMessage = 'User information is missing. Please log in again.';
+                                  context.push('/login');
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to toggle like: $errorMessage'),
+                                    backgroundColor: Theme.of(context).colorScheme.error,
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            },
+                            child: Row(
+                              children: [
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  child: Icon(
+                                    isLiked ? Icons.favorite : Icons.favorite_border,
+                                    key: ValueKey<bool>(isLiked),
+                                    color: Colors.red,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${event.likes}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
