@@ -197,9 +197,6 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     );
 
     if (paymentSuccessful) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment successful! Verifying transaction...')),
-      );
       Future.microtask(() => _verifyTransaction());
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -258,10 +255,55 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           booking = BookingModel.fromJson(verifyData['book']);
           showQrCode = true;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment and booking successful!'),
-            duration: Duration(seconds: 3),
+
+        // Show professional success modal
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            contentPadding: const EdgeInsets.all(24),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 64,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Payment Successful!',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Your booking has been confirmed. You can view your ticket details now.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 24),
+                QrImageView(
+                  data: 'TCK-${booking!.id}-${booking!.userId}-${booking!.eventId}',
+                  size: 150,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    backgroundColor: Colors.blueAccent,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.push('/tickets');
+                  },
+                  child: const Text(
+                    'View Ticket',
+                    style: TextStyle(fontSize: 16, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       } else {
@@ -294,88 +336,219 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final bookingState = ref.watch(bookingProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Book Event')),
+      appBar: AppBar(
+        title: const Text(
+          'Book Your Event',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        backgroundColor: Colors.blueAccent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: eventAsync.when(
         data: (event) {
           if (showQrCode && booking != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Booking Successful!', style: TextStyle(fontSize: 20)),
-                  const SizedBox(height: 20),
-                  QrImageView(
-                    data: 'TCK-${booking!.id}-${booking!.userId}-${booking!.eventId}',
-                    size: 200,
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () => context.push('/tickets'),
-                    child: const Text('View Tickets'),
-                  ),
-                ],
-              ),
-            );
+            // Success modal handles this, so return empty container
+            return Container();
           }
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Event: ${event.title}', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 16),
-                DropdownButton<String>(
-                  hint: const Text('Select Ticket Type'),
-                  value: selectedTicketType,
-                  isExpanded: true,
-                  items: event.ticketTypes
-                      .map((ticket) => DropdownMenuItem(
-                            value: ticket.name,
-                            child: Text('${ticket.name} (\$${ticket.price})'),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedTicketType = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                Text('Tickets: $ticketCount'),
-                Slider(
-                  value: ticketCount.toDouble(),
-                  min: 1,
-                  max: 10,
-                  divisions: 9,
-                  onChanged: (value) {
-                    setState(() {
-                      ticketCount = value.toInt();
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Total: \$${selectedTicketType != null ? (event.ticketTypes.firstWhere((t) => t.name == selectedTicketType).price * ticketCount).toStringAsFixed(2) : '0.00'}',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 16),
-                if (bookingState.error != null)
-                  Text('Error: ${bookingState.error}', style: const TextStyle(color: Colors.red)),
-                if (isLoading)
-                  const Center(child: CircularProgressIndicator())
-                else
-                  ElevatedButton(
-                    onPressed: selectedTicketType == null
-                        ? null
-                        : () async {
-                            final ticketType = event.ticketTypes.firstWhere((t) => t.name == selectedTicketType);
-                            final totalAmount = ticketType.price * ticketCount;
-                            await _initializePayment(totalAmount);
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+              child: Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Event Name
+                      Text(
+                        event.title,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueAccent,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Secure your spot for this exciting event!',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Ticket Type Dropdown
+                      const Text(
+                        'Ticket Type',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButton<String>(
+                          hint: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('Select Ticket Type'),
+                          ),
+                          value: selectedTicketType,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          items: event.ticketTypes
+                              .map((ticket) => DropdownMenuItem(
+                                    value: ticket.name,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      child: Text('${ticket.name} (\$${ticket.price})'),
+                                    ),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              selectedTicketType = value;
+                            });
                           },
-                    child: const Text('Proceed to Payment'),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Ticket Counter
+                      const Text(
+                        'Number of Tickets',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            onPressed: ticketCount > 1
+                                ? () {
+                                    setState(() {
+                                      ticketCount--;
+                                    });
+                                  }
+                                : null,
+                            icon: const Icon(Icons.remove_circle, color: Colors.blueAccent),
+                          ),
+                          Text(
+                            '$ticketCount',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          IconButton(
+                            onPressed: ticketCount < 10
+                                ? () {
+                                    setState(() {
+                                      ticketCount++;
+                                    });
+                                  }
+                                : null,
+                            icon: const Icon(Icons.add_circle, color: Colors.blueAccent),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: ticketCount.toDouble(),
+                        min: 1,
+                        max: 10,
+                        divisions: 9,
+                        activeColor: Colors.blueAccent,
+                        inactiveColor: Colors.grey[300],
+                        onChanged: (value) {
+                          setState(() {
+                            ticketCount = value.toInt();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Total Amount
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Total Amount',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              '\$${selectedTicketType != null ? (event.ticketTypes.firstWhere((t) => t.name == selectedTicketType).price * ticketCount).toStringAsFixed(2) : '0.00'}',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Error Message
+                      if (bookingState.error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            'Error: ${bookingState.error}',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+
+                      // Proceed to Payment Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: selectedTicketType == null
+                              ? null
+                              : () async {
+                                  final ticketType = event.ticketTypes.firstWhere((t) => t.name == selectedTicketType);
+                                  final totalAmount = ticketType.price * ticketCount;
+                                  await _initializePayment(totalAmount);
+                                },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: Colors.blueAccent,
+                            disabledBackgroundColor: Colors.grey[300],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Proceed to Payment',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
-              ],
+                ),
+              ),
             ),
           );
         },
