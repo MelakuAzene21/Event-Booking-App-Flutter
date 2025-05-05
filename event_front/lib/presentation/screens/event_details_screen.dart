@@ -51,12 +51,54 @@ class EventDetailsScreen extends ConsumerWidget {
                     Positioned(
                       top: 40,
                       right: 16,
-                      child: CircleAvatar(
-                        backgroundColor: Colors.black54,
-                        radius: 20,
-                        child: Icon(
-                          event.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                          color: Colors.white,
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (!authState.isAuthenticated) {
+                            context.push('/login');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please log in to bookmark events'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+                          try {
+                            await ref.read(eventRepositoryProvider).toggleBookmark(event.id);
+                            ref.invalidate(eventDetailsProvider(eventId));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  event.isBookmarked ? 'Bookmark removed successfully' : 'Event bookmarked successfully',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                backgroundColor: Colors.green,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          } catch (e) {
+                            String errorMessage = e.toString();
+                            if (errorMessage.contains('Authentication failed') ||
+                                errorMessage.contains('Invalid token')) {
+                              errorMessage = 'Session expired. Please log in again.';
+                              context.push('/login');
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to toggle bookmark: $errorMessage'),
+                                backgroundColor: Theme.of(context).colorScheme.error,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        },
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black54,
+                          radius: 20,
+                          child: Icon(
+                            event.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),

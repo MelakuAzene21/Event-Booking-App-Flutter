@@ -1,4 +1,6 @@
-import 'dart:convert';
+// import 'package:event_booking_app/data/models/location_model.dart';
+// import 'package:event_booking_app/data/models/organizer_model.dart';
+// import 'package:event_booking_app/data/models/ticket_type_model.dart';
 
 class EventModel {
   final String id;
@@ -6,128 +8,117 @@ class EventModel {
   final String description;
   final DateTime eventDate;
   final String eventTime;
-  final Location location;
-  final String category;
+  final LocationModel location;
   final List<String> images;
-  final List<TicketType> ticketTypes;
-  final Organizer organizer;
+  final String category;
   final int likes;
-  final List<String> usersLiked;
-  final List<String> bookmarkedBy;
-  final String status;
+  final OrganizerModel organizer;
+  final List<TicketTypeModel> ticketTypes;
   final bool isBookmarked;
 
   EventModel({
     required this.id,
     required this.title,
-    required this.description,
+    this.description = '',
     required this.eventDate,
-    required this.eventTime,
+    this.eventTime = '',
     required this.location,
-    required this.category,
-    required this.images,
-    required this.ticketTypes,
+    this.images = const [],
+    this.category = '',
+    this.likes = 0,
     required this.organizer,
-    required this.likes,
-    required this.usersLiked,
-    required this.bookmarkedBy,
-    required this.status,
+    this.ticketTypes = const [],
     this.isBookmarked = false,
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
-    print('Parsing event: $json'); // Debug: Log JSON input
-    return EventModel(
-      id: json['_id']?.toString() ?? '',
-      title: json['title']?.toString() ?? 'No Title',
-      description: json['description']?.toString() ?? '',
-      eventDate: DateTime.tryParse(json['eventDate']?.toString() ?? '') ?? DateTime.now(),
-      eventTime: json['eventTime']?.toString() ?? '',
-      location: Location.fromJson(json['location'] as Map<String, dynamic>? ?? {}),
-      category: json['category']?.toString() ?? 'General',
-      images: (json['images'] as List<dynamic>?)?.cast<String>() ?? [],
-      ticketTypes: (json['ticketTypes'] as List<dynamic>?)
-              ?.map((t) => TicketType.fromJson(t as Map<String, dynamic>))
-              .toList() ??
-          [],
-      organizer: Organizer.fromJson(json['organizer'] as Map<String, dynamic>? ?? {}),
-      likes: json['likes'] as int? ?? 0,
-      usersLiked: (json['usersLiked'] as List<dynamic>?)?.cast<String>() ?? [],
-      bookmarkedBy: (json['bookmarkedBy'] as List<dynamic>?)?.cast<String>() ?? [],
-      status: json['status']?.toString() ?? 'pending',
-      isBookmarked: json['bookmarkedBy']?.contains(json['user']?.toString()) ?? false,
-    );
+    print('Parsing event JSON: $json'); // Debug: Log JSON
+    try {
+      return EventModel(
+        id: json['_id'] as String? ?? '',
+        title: json['title'] as String? ?? 'Untitled Event',
+        description: json['description'] as String? ?? '',
+        eventDate: json['eventDate'] != null
+            ? DateTime.parse(json['eventDate'] as String)
+            : DateTime.now(),
+        eventTime: json['eventTime'] as String? ?? '',
+        location: json['location'] != null
+            ? LocationModel.fromJson(json['location'] as Map<String, dynamic>)
+            : LocationModel(name: '', latitude: null, longitude: null),
+        images: (json['images'] as List<dynamic>?)?.cast<String>() ?? [],
+        category: json['category'] as String? ?? '',
+        likes: (json['likes'] as num?)?.toInt() ?? 0,
+        organizer: json['user'] != null
+            ? OrganizerModel.fromJson(json['user'] as Map<String, dynamic>)
+            : OrganizerModel(name: '', email: ''),
+        ticketTypes: (json['ticketTypes'] as List<dynamic>?)?.map((t) => TicketTypeModel.fromJson(t as Map<String, dynamic>)).toList() ?? [],
+        isBookmarked: json['isBookmarked'] as bool? ?? false,
+      );
+    } catch (e) {
+      print('Error parsing EventModel: $e'); // Debug: Log error
+      rethrow;
+    }
   }
 }
 
-class Location {
+class LocationModel {
   final String name;
   final double? latitude;
   final double? longitude;
 
-  Location({
-    required this.name,
-    this.latitude,
-    this.longitude,
-  });
+  LocationModel({required this.name, this.latitude, this.longitude});
 
-  factory Location.fromJson(Map<String, dynamic> json) {
-    return Location(
-      name: json['name']?.toString() ?? '',
+  factory LocationModel.fromJson(Map<String, dynamic> json) {
+    return LocationModel(
+      name: json['name'] as String? ?? '',
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 }
 
-class TicketType {
+class OrganizerModel {
   final String name;
-  final double price;
-  final int limit;
-  final int booked;
-  final int available;
+  final String email;
+  final String? avatar;
+  final String? organizationName;
 
-  TicketType({
+  OrganizerModel({
     required this.name,
-    required this.price,
-    required this.limit,
-    required this.booked,
-    required this.available,
+    required this.email,
+    this.avatar,
+    this.organizationName,
   });
 
-  factory TicketType.fromJson(Map<String, dynamic> json) {
-    return TicketType(
-      name: json['name']?.toString() ?? '',
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
-      limit: json['limit'] as int? ?? 0,
-      booked: json['booked'] as int? ?? 0,
-      available: json['available'] as int? ?? 0,
+  factory OrganizerModel.fromJson(Map<String, dynamic> json) {
+    return OrganizerModel(
+      name: json['name'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      avatar: json['avatar'] as String?,
+      organizationName: json['organizationName'] as String?,
     );
   }
 }
 
-class Organizer {
+class TicketTypeModel {
   final String name;
-  final String email;
-  final String? avatar;
-  final String? about;
-  final String? organizationName;
+  final double price;
+  final int available;
+  final int limit;
 
-  Organizer({
+  TicketTypeModel({
     required this.name,
-    required this.email,
-    this.avatar,
-    this.about,
-    this.organizationName,
+    required this.price,
+    required this.available,
+    required this.limit,
   });
 
-  factory Organizer.fromJson(Map<String, dynamic> json) {
-    return Organizer(
-      name: json['name']?.toString() ?? 'Unknown',
-      email: json['email']?.toString() ?? '',
-      avatar: json['avatar']?.toString(),
-      about: json['about']?.toString(),
-      organizationName: json['organizationName']?.toString(),
+  factory TicketTypeModel.fromJson(Map<String, dynamic> json) {
+    return TicketTypeModel(
+      name: json['name'] as String? ?? 'Unnamed Ticket',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      available: (json['available'] as num?)?.toInt() ?? 0,
+      limit: (json['limit'] as num?)?.toInt() ?? 0,
     );
   }
 }

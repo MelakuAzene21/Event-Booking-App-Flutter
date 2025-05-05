@@ -47,6 +47,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _checkAuthStatus() async {
     final token = await SecureStorage.getToken();
+    print('Checking auth status, token: $token'); // Debug: Log token
     if (token != null && !JwtDecoder.isExpired(token)) {
       try {
         final user = await _authRepository.getProfile();
@@ -57,6 +58,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           error: null,
         );
       } catch (e) {
+        print('Error checking auth status: $e'); // Debug: Log error
         await SecureStorage.deleteToken();
         state = state.copyWith(
           user: null,
@@ -72,6 +74,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final user = await _authRepository.login(email, password);
       final token = await SecureStorage.getToken();
+      print('Login successful, token: $token'); // Debug: Log token
       state = state.copyWith(
         user: user,
         token: token,
@@ -79,6 +82,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: null,
       );
     } catch (e) {
+      print('Login error: $e'); // Debug: Log error
       state = state.copyWith(error: e.toString());
     }
   }
@@ -92,6 +96,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: null,
       );
     } catch (e) {
+      print('Register error: $e'); // Debug: Log error
       state = state.copyWith(error: e.toString());
     }
   }
@@ -99,6 +104,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     try {
       await _authRepository.logout();
+      await SecureStorage.deleteToken();
       state = state.copyWith(
         user: null,
         token: null,
@@ -106,6 +112,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: null,
       );
     } catch (e) {
+      print('Logout error: $e'); // Debug: Log error
       state = state.copyWith(error: e.toString());
     }
   }
@@ -115,6 +122,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = await _authRepository.getProfile();
       state = state.copyWith(user: user, error: null);
     } catch (e) {
+      print('Get profile error: $e'); // Debug: Log error
       state = state.copyWith(error: e.toString());
     }
   }

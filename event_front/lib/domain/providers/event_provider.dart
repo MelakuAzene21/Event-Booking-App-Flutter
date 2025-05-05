@@ -11,3 +11,7 @@ final eventsProvider = FutureProvider<List<EventModel>>((ref) async {
 final eventDetailsProvider = FutureProvider.family<EventModel, String>((ref, id) async {
   return await ref.watch(eventRepositoryProvider).getEventDetails(id);
 });
+
+final bookmarkedEventsProvider = FutureProvider<List<EventModel>>((ref) async {
+  return await ref.watch(eventRepositoryProvider).getBookmarkedEvents();
+});
