@@ -10,6 +10,9 @@ class TicketModel {
   final String ticketNumber;
   final String qrCode;
   final bool isUsed;
+  final String ticketType; // Added
+  final int ticketCount; // Added
+  final DateTime createdAt; // Added
   final EventModel? event;
   final BookingModel? booking;
   final UserModel? user;
@@ -22,6 +25,9 @@ class TicketModel {
     required this.ticketNumber,
     required this.qrCode,
     required this.isUsed,
+    required this.ticketType,
+    required this.ticketCount,
+    required this.createdAt,
     this.event,
     this.booking,
     this.user,
@@ -55,6 +61,11 @@ class TicketModel {
       ticketNumber: safeString(json['ticketNumber']),
       qrCode: safeString(json['qrCode']),
       isUsed: json['isUsed'] ?? false,
+      ticketType: safeString(json['ticketType']), // Added
+      ticketCount: json['ticketCount'] is int ? json['ticketCount'] : 1, // Added
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(), // Added
       event: json['event'] is Map<String, dynamic>
           ? EventModel.fromJson(json['event'])
           : null,

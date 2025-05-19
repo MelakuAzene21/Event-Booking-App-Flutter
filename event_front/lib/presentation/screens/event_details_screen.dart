@@ -136,6 +136,7 @@ class EventDetailsScreen extends ConsumerWidget {
                                 try {
                                   await ref.read(eventRepositoryProvider).toggleBookmark(event.id);
                                   ref.invalidate(eventDetailsProvider(eventId));
+                                  ref.invalidate(bookmarkedEventsProvider);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -146,6 +147,7 @@ class EventDetailsScreen extends ConsumerWidget {
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );
+                                  
                                 } catch (e) {
                                   String errorMessage = e.toString();
                                   if (errorMessage.contains('Authentication failed')) {

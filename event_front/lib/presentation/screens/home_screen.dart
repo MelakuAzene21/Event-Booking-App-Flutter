@@ -16,7 +16,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
   String _selectedCategory = 'All';
-  final List<String> categories = ['All', 'Music', 'Sports', 'Tech', 'Art', 'General'];
+  final List<String> categories = ['All', 'music', 'entertainment', 'sport', 'Tech', 'Art', 'General', 'education'];
 
   @override
   void dispose() {
@@ -38,7 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(120),
+              preferredSize: const Size.fromHeight(142), // Increased to 142
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(

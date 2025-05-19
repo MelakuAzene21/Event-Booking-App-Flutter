@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:event_booking_app/core/config/api_config.dart';
 import 'package:event_booking_app/core/utils/secure_storage.dart';
+import 'package:event_booking_app/domain/providers/ticket_provider.dart';
 
 class BookingScreen extends ConsumerStatefulWidget {
   final String eventId;
@@ -205,131 +206,138 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     }
   }
 
-  Future<void> _verifyTransaction() async {
-    if (txRef == null || selectedTicketType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Transaction reference or ticket type missing')),
-      );
-      return;
-    }
 
-    setState(() {
-      isLoading = true;
-    });
-
-    try {
-      final token = await SecureStorage.getToken();
-      if (token == null) throw Exception('No authentication token found. Please log in again.');
-
-      final userProfile = await _getUserProfile();
-      if (userProfile == null) throw Exception('Failed to fetch user profile');
-
-      final userId = userProfile['_id'];
-      print('Verifying transaction with txRef: $txRef, userId: $userId');
-
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/payment/verify-transaction/$txRef'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': 'token=$token',
-        },
-        body: jsonEncode({
-          'eventId': widget.eventId,
-          'ticketType': selectedTicketType,
-          'ticketCount': ticketCount,
-          'userId': userId,
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      print('Transaction verification response: ${response.statusCode}, ${response.body}');
-
-      final contentType = response.headers['content-type'];
-      if (contentType == null || !contentType.contains('application/json')) {
-        throw Exception('Invalid server response: Expected JSON, received ${contentType ?? 'unknown'}');
-      }
-
-      final verifyData = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && verifyData['success']) {
-        setState(() {
-          booking = BookingModel.fromJson(verifyData['book']);
-          showQrCode = true;
-        });
-
-        // Show professional success modal
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            contentPadding: const EdgeInsets.all(24),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.check_circle,
-                  color: Colors.green,
-                  size: 64,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Payment Successful!',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Your booking has been confirmed. You can view your ticket details now.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 24),
-                QrImageView(
-                  data: 'TCK-${booking!.id}-${booking!.userId}-${booking!.eventId}',
-                  size: 150,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    backgroundColor: Colors.blueAccent,
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    context.push('/tickets');
-                  },
-                  child: const Text(
-                    'View Ticket',
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        final errorMessage = verifyData['message'] ?? 'Failed to verify transaction';
-        throw Exception('Server error: $errorMessage (Status: ${response.statusCode})');
-      }
-    } catch (e) {
-      print('Error verifying transaction: $e');
-      String errorMessage;
-      if (e.toString().contains('404')) {
-        errorMessage = 'Transaction verification endpoint not found. Please contact support.';
-      } else if (e.toString().contains('Invalid server response')) {
-        errorMessage = 'Invalid server response. Please try again or contact support.';
-      } else {
-        errorMessage = 'Error verifying transaction: ${e.toString()}';
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
+Future<void> _verifyTransaction() async {
+  if (txRef == null || selectedTicketType == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Error: Transaction reference or ticket type missing')),
+    );
+    return;
   }
 
+  setState(() {
+    isLoading = true;
+  });
+
+  try {
+    final token = await SecureStorage.getToken();
+    if (token == null) throw Exception('No authentication token found. Please log in again.');
+
+    final userProfile = await _getUserProfile();
+    if (userProfile == null) throw Exception('Failed to fetch user profile');
+
+    final userId = userProfile['_id'];
+    print('Verifying transaction with txRef: $txRef, userId: $userId');
+
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/payment/verify-transaction/$txRef'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': 'token=$token',
+      },
+      body: jsonEncode({
+        'eventId': widget.eventId,
+        'ticketType': selectedTicketType,
+        'ticketCount': ticketCount,
+        'userId': userId,
+      }),
+    ).timeout(const Duration(seconds: 10));
+
+    print('Transaction verification response: ${response.statusCode}, ${response.body}');
+
+    final contentType = response.headers['content-type'];
+    if (contentType == null || !contentType.contains('application/json')) {
+      throw Exception('Invalid server response: Expected JSON, received ${contentType ?? 'unknown'}');
+    }
+
+    final verifyData = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && verifyData['success']) {
+      setState(() {
+        booking = BookingModel.fromJson(verifyData['book']);
+        showQrCode = true;
+      });
+
+      // Invalidate ticketsProvider to ensure fresh data
+      ref.invalidate(ticketsProvider);
+
+      // Show success modal
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          contentPadding: const EdgeInsets.all(24),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Payment Successful!',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Your booking has been confirmed. You can view your ticket details now.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              QrImageView(
+                data: 'TCK-${booking!.id}-${booking!.userId}-${booking!.eventId}',
+                size: 150,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  backgroundColor: Colors.blueAccent,
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Pass temporaryBooking and isBookingProcessing
+                  context.push('/tickets', extra: {
+                    'temporaryBooking': booking,
+                    'isBookingProcessing': true,
+                  });
+                },
+                child: const Text(
+                  'View Ticket',
+                  style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      final errorMessage = verifyData['message'] ?? 'Failed to verify transaction';
+      throw Exception('Server error: $errorMessage (Status: ${response.statusCode})');
+    }
+  } catch (e) {
+    print('Error verifying transaction: $e');
+    String errorMessage;
+    if (e.toString().contains('404')) {
+      errorMessage = 'Transaction verification endpoint not found. Please contact support.';
+    } else if (e.toString().contains('Invalid server response')) {
+      errorMessage = 'Invalid server response. Please try again or contact support.';
+    } else {
+      errorMessage = 'Error verifying transaction: ${e.toString()}';
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(errorMessage)),
+    );
+  } finally {
+    setState(() {
+      isLoading = false;
+    });
+  }
+}
   @override
   Widget build(BuildContext context) {
     final eventAsync = ref.watch(eventDetailsProvider(widget.eventId));

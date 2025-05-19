@@ -3,14 +3,47 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:event_booking_app/domain/providers/ticket_provider.dart';
+import 'package:event_booking_app/data/models/booking_model.dart';
+import 'package:event_booking_app/data/models/ticket_model.dart';
 import 'package:event_booking_app/presentation/widgets/ticket_card.dart';
 
 class TicketsScreen extends ConsumerWidget {
-  const TicketsScreen({super.key});
+  final BookingModel? temporaryBooking;
+  final bool isBookingProcessing;
+
+  const TicketsScreen({
+    super.key,
+    this.temporaryBooking,
+    this.isBookingProcessing = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ticketsAsync = ref.watch(ticketsProvider);
+
+    // Show loading state if a booking is processing and no temporary ticket is available
+    if (isBookingProcessing && temporaryBooking == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('My Tickets'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'Processing your ticket...',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -20,7 +53,29 @@ class TicketsScreen extends ConsumerWidget {
       ),
       body: ticketsAsync.when(
         data: (tickets) {
-          if (tickets.isEmpty) {
+          // Combine temporary booking with fetched tickets
+          final List<TicketModel> displayTickets = [...tickets];
+          if (temporaryBooking != null) {
+            // Convert BookingModel to TicketModel
+            final tempTicket = TicketModel(
+              id: temporaryBooking!.id,
+              bookingId: temporaryBooking!.id, // Use booking ID as bookingId
+              eventId: temporaryBooking!.eventId,
+              userId: temporaryBooking!.userId,
+              ticketNumber: 'TCK-${temporaryBooking!.id}', // Generate ticket number
+              qrCode: 'TCK-${temporaryBooking!.id}-${temporaryBooking!.userId}-${temporaryBooking!.eventId}',
+              isUsed: false, // Default to false for new tickets
+              ticketType: temporaryBooking!.ticketType,
+              ticketCount: temporaryBooking!.ticketCount,
+              createdAt: temporaryBooking!.createdAt ?? DateTime.now(),
+            );
+            // Avoid duplicates
+            if (!displayTickets.any((t) => t.id == tempTicket.id)) {
+              displayTickets.add(tempTicket);
+            }
+          }
+
+          if (displayTickets.isEmpty) {
             return Center(
               child: Container(
                 decoration: BoxDecoration(
@@ -106,9 +161,9 @@ class TicketsScreen extends ConsumerWidget {
             },
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: tickets.length,
+              itemCount: displayTickets.length,
               itemBuilder: (context, index) {
-                return TicketCard(ticket: tickets[index])
+                return TicketCard(ticket: displayTickets[index])
                     .animate()
                     .fadeIn(delay: Duration(milliseconds: index * 100));
               },

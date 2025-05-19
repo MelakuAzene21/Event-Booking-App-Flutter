@@ -30,6 +30,8 @@ class BookingModel {
     );
   }
 
+  get createdAt => null;
+
   Map<String, dynamic> toJson() {
     return {
       'event': eventId,
